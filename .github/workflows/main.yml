@@ -24,7 +24,7 @@ jobs:
         uses: SickleFire/m-vis@v0.5.0-rc1
         with:
           version: v0.5.0-rc1
-          spawn: leak_test.exe
+          spawn: ./leak_test.exe
           # leak_test allocates and dirties 1MB/sec, so a 20MB ceiling
           # over a 30s window trips reliably without waiting anywhere
           # near its full 1000-iteration runtime.
