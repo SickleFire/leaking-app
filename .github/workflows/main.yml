@@ -1,0 +1,50 @@
+name: Memory Audit Example (leak_test)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  memory-audit:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install MinGW (g++)
+        run: choco install mingw -y
+
+      - name: Compile leak_test
+        run: gcc leak_test_c.c -o leak_test.exe
+
+      - name: Run mvis memory audit (expect failure — this program leaks on purpose)
+        id: audit
+        continue-on-error: true
+        uses: SickleFire/m-vis@v0.5.0-rc1
+        with:
+          version: v0.5.0-rc1
+          spawn: leak_test.exe
+          # leak_test allocates and dirties 1MB/sec, so a 20MB ceiling
+          # over a 30s window trips reliably without waiting anywhere
+          # near its full 1000-iteration runtime.
+          max-memory: 20
+          duration: 30
+          format: junit
+          output: leak-test-report.xml
+
+      - name: Confirm the breach was actually caught
+        shell: bash
+        run: |
+          if [ "${{ steps.audit.outcome }}" != "failure" ]; then
+            echo "::error::expected mvis to fail on the max-memory breach, got: ${{ steps.audit.outcome }}"
+            exit 1
+          fi
+          echo "mvis correctly detected the memory ceiling breach."
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: leak-test-report
+          path: leak-test-report.xml
